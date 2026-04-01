@@ -5,34 +5,34 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 from .models import User
-from  .serializers import RegisterSerializer,UserSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from .permissions import IsLibrarian
+from  .serializers import RegisterSerializer,UserSerializer,CustomTokenObtainPairSerializer
 # Create your views here.
 #Dung viewset voi crud con api voi logic dac biet
 class UserView(viewsets.ModelViewSet):
     queryset=User.objects.all()
     serializer_class=UserSerializer
+    permission_classes = [IsLibrarian]
 #tao token de register + login luon
 class RegisterView(APIView):
     def post(self,request):
         serializer=RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user=serializer.save()
+            refresh = RefreshToken.for_user(user)
             return Response({
-                "user": UserSerializer(user).data
+                "user": UserSerializer(user).data,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh)
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
     def post(self,request):
-        username=request.data.get("username")
-        password=request.data.get("password")
-        user=authenticate(username=username,password=password)
-
-        if user:
-            return Response({
-                "message":"Login successful"
-            })
-        return Response({"error":"Invalid"},status=status.HTTP_400_BAD_REQUEST)
+        serializer = CustomTokenObtainPairSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data)
 
 
 class ProfileView(APIView):

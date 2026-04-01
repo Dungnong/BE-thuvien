@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Loan,LoanDetail
 from .serializers import LoanDetailSerializer,LoanSerializer
 from books.models import Book
+from core.permissions import IsLibrarian
 # Create your views here.
 class LoanView(viewsets.ModelViewSet):
     queryset=Loan.objects.all()
@@ -14,8 +15,16 @@ class LoanView(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]  # Chỉ cho phép user đã đăng nhập
     
     def get_queryset(self):
-        """✓ FIX: Chỉ lấy loans của user hiện tại, tránh thấy loans của người khác"""
+        """Librarian xem được tất cả, reader chỉ thấy loan của mình."""
+        if self.request.user.is_staff or getattr(self.request.user, 'role', '') == 'librarian':
+            return Loan.objects.all()
         return Loan.objects.filter(user=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ['approve', 'destroy', 'update', 'partial_update']:
+            return [IsAuthenticated(), IsLibrarian()]
+        return [IsAuthenticated()]
+
     def create(self, request, *args, **kwargs):
         """Override create để xử lý POST request từ frontend"""
         try:
@@ -98,6 +107,13 @@ class LoanView(viewsets.ModelViewSet):
     @action(detail=True,methods=['patch'])
     def return_book(self,request,pk=None):
         loan=self.get_object()
+
+        is_librarian = request.user.is_staff or getattr(request.user, 'role', '') == 'librarian'
+        if loan.user_id != request.user.id and not is_librarian:
+            return Response({"error": "Bạn không có quyền trả khoản mượn này."}, status=status.HTTP_403_FORBIDDEN)
+
+        if loan.status != 'borrowed':
+            return Response({"error": "Chỉ khoản mượn đang mượn mới có thể trả."}, status=status.HTTP_400_BAD_REQUEST)
         
         for detail in loan.loan_details.all():
             book=detail.book

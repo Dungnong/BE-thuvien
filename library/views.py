@@ -5,14 +5,17 @@ from rest_framework.response import Response
 
 from .models import Zone, Seat, SeatReservation 
 from .serializers import ZoneSerializer, SeatSerializer, SeatReservationSerializer
+from core.permissions import IsLibrarianOrReadOnly
 
 class ZoneView(viewsets.ModelViewSet):
     queryset = Zone.objects.all()
     serializer_class = ZoneSerializer
+    permission_classes = [IsLibrarianOrReadOnly]
 
 class SeatView(viewsets.ModelViewSet):
     queryset = Seat.objects.all()
     serializer_class = SeatSerializer
+    permission_classes = [IsLibrarianOrReadOnly]
 
 class SeatReservationView(viewsets.ModelViewSet):
     queryset = SeatReservation.objects.all()
