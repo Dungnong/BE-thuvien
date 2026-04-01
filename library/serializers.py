@@ -8,7 +8,7 @@ class SeatReservationSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeatReservation # 3. Khai báo đúng tên model
         fields = '__all__'
-        read_only_fields = ['status'] # Trạng thái do hệ thống/thủ thư quản lý, user không được tự gửi status
+        read_only_fields = ['status', 'user'] # Trạng thái và user do hệ thống gán
 
     def validate(self, data):
         """Thuật toán kiểm tra trùng lịch cốt lõi"""
@@ -31,6 +31,9 @@ class SeatReservationSerializer(serializers.ModelSerializer):
         ).filter(
             Q(start_time__lt=end_time) & Q(end_time__gt=start_time)
         )
+
+        if self.instance is not None:
+            overlapping_reservations = overlapping_reservations.exclude(id=self.instance.id)
 
         if overlapping_reservations.exists():
             raise serializers.ValidationError("Ghế này đã có người đặt trong khoảng thời gian bạn chọn.")
